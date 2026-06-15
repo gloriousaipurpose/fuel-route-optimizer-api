@@ -1,0 +1,801 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Optimal Fuel Route Planner</title>
+    
+    <!-- Modern Typography -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+    
+    <!-- Custom CSS -->
+    <style>
+        :root {
+            --bg-color: #0b0f19;
+            --card-bg: rgba(17, 24, 39, 0.75);
+            --card-border: rgba(255, 255, 255, 0.08);
+            --primary: #6366f1;
+            --primary-hover: #4f46e5;
+            --success: #10b981;
+            --success-hover: #059669;
+            --text-main: #f3f4f6;
+            --text-muted: #9ca3af;
+            --accent: #f59e0b;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Outfit', sans-serif;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        header {
+            background: linear-gradient(135deg, #111827 0%, #030712 100%);
+            border-bottom: 1px solid var(--card-border);
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            z-index: 10;
+        }
+
+        .logo {
+            font-size: 1.5rem;
+            font-weight: 700;
+            background: linear-gradient(to right, #818cf8, #34d399);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .logo span {
+            font-size: 0.8rem;
+            background: rgba(99, 102, 241, 0.2);
+            color: #a5b4fc;
+            padding: 0.2rem 0.5rem;
+            border-radius: 9999px;
+            font-weight: 500;
+            text-transform: uppercase;
+        }
+
+        .main-container {
+            flex: 1;
+            display: flex;
+            position: relative;
+            height: calc(100vh - 4.5rem);
+        }
+
+        .sidebar {
+            width: 420px;
+            background: var(--card-bg);
+            backdrop-filter: blur(12px);
+            border-right: 1px solid var(--card-border);
+            display: flex;
+            flex-direction: column;
+            padding: 1.5rem;
+            z-index: 5;
+            overflow-y: auto;
+            box-shadow: 10px 0 30px rgba(0, 0, 0, 0.5);
+            transition: all 0.3s ease;
+        }
+
+        .map-container {
+            flex: 1;
+            position: relative;
+            background: #1e293b;
+        }
+
+        #map {
+            width: 100%;
+            height: 100%;
+        }
+
+        /* Glassmorphism Forms */
+        .search-card {
+            background: rgba(31, 41, 55, 0.4);
+            border: 1px solid var(--card-border);
+            border-radius: 12px;
+            padding: 1.25rem;
+            margin-bottom: 1.5rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+
+        .form-group {
+            margin-bottom: 1rem;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 0.85rem;
+            font-weight: 500;
+            color: var(--text-muted);
+            margin-bottom: 0.5rem;
+        }
+
+        .form-control {
+            width: 100%;
+            background: rgba(17, 24, 39, 0.8);
+            border: 1px solid var(--card-border);
+            border-radius: 8px;
+            padding: 0.75rem 1rem;
+            color: var(--text-main);
+            font-size: 0.95rem;
+            outline: none;
+            transition: all 0.2s ease;
+        }
+
+        .form-control:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.3);
+        }
+
+        .btn-submit {
+            width: 100%;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-hover) 100%);
+            border: none;
+            border-radius: 8px;
+            padding: 0.75rem 1.5rem;
+            color: white;
+            font-weight: 600;
+            font-size: 0.95rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 0.5rem;
+            box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+        }
+
+        .btn-submit:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 6px 16px rgba(99, 102, 241, 0.4);
+        }
+
+        .btn-submit:active {
+            transform: translateY(1px);
+        }
+
+        /* Route Stats Grid */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .stat-card {
+            background: rgba(31, 41, 55, 0.4);
+            border: 1px solid var(--card-border);
+            border-radius: 10px;
+            padding: 1rem;
+            text-align: center;
+        }
+
+        .stat-label {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            font-weight: 500;
+            text-transform: uppercase;
+            margin-bottom: 0.25rem;
+        }
+
+        .stat-val {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: var(--text-main);
+        }
+
+        .stat-val.highlight {
+            color: var(--success);
+        }
+
+        /* Stops Timeline */
+        .stops-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .section-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .timeline {
+            position: relative;
+            padding-left: 1.5rem;
+            margin-left: 0.5rem;
+            border-left: 2px solid rgba(255, 255, 255, 0.1);
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        .timeline-item {
+            position: relative;
+        }
+
+        .timeline-item::before {
+            content: '';
+            position: absolute;
+            left: calc(-1.5rem - 6px);
+            top: 4px;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: var(--text-muted);
+            border: 2px solid var(--bg-color);
+        }
+
+        .timeline-item.start::before {
+            background: var(--primary);
+            width: 14px;
+            height: 14px;
+            left: calc(-1.5rem - 8px);
+        }
+
+        .timeline-item.end::before {
+            background: var(--success);
+            width: 14px;
+            height: 14px;
+            left: calc(-1.5rem - 8px);
+        }
+
+        .timeline-item.refuel::before {
+            background: var(--accent);
+            box-shadow: 0 0 8px var(--accent);
+        }
+
+        .timeline-content {
+            background: rgba(31, 41, 55, 0.25);
+            border: 1px solid var(--card-border);
+            border-radius: 8px;
+            padding: 0.75rem 1rem;
+        }
+
+        .timeline-title {
+            font-size: 0.95rem;
+            font-weight: 600;
+            margin-bottom: 0.25rem;
+        }
+
+        .timeline-desc {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+        }
+
+        .timeline-price {
+            margin-top: 0.5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.85rem;
+        }
+
+        .badge {
+            background: rgba(245, 158, 11, 0.15);
+            color: #fbbf24;
+            padding: 0.15rem 0.4rem;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+
+        /* Floating Alert Box */
+        .toast {
+            position: absolute;
+            bottom: 2rem;
+            right: 2rem;
+            background: rgba(239, 68, 68, 0.9);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: white;
+            padding: 1rem 1.5rem;
+            border-radius: 8px;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3);
+            display: none;
+            align-items: center;
+            gap: 0.75rem;
+            z-index: 1000;
+            backdrop-filter: blur(8px);
+            animation: slideIn 0.3s ease;
+        }
+
+        @keyframes slideIn {
+            from { transform: translateY(20px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+        /* Leaflet Popups */
+        .leaflet-popup-content-wrapper {
+            background: #1f2937 !important;
+            color: white !important;
+            border-radius: 8px !important;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .leaflet-popup-tip {
+            background: #1f2937 !important;
+        }
+
+        .popup-title {
+            font-weight: 600;
+            margin-bottom: 0.25rem;
+            font-size: 0.95rem;
+            color: #818cf8;
+        }
+
+        .popup-details {
+            font-size: 0.8rem;
+            color: #d1d5db;
+        }
+
+        .popup-refuel {
+            font-weight: 700;
+            color: var(--accent);
+            margin-top: 0.4rem;
+            font-size: 0.85rem;
+        }
+
+        .spinner {
+            border: 3px solid rgba(255, 255, 255, 0.1);
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            border-left-color: white;
+            animation: spin 1s linear infinite;
+            display: none;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Autocomplete Dropdown styling */
+        .autocomplete-container {
+            position: relative;
+            width: 100%;
+        }
+
+        .autocomplete-dropdown {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: rgba(17, 24, 39, 0.96);
+            backdrop-filter: blur(16px);
+            border: 1px solid var(--card-border);
+            border-top: none;
+            border-radius: 0 0 8px 8px;
+            max-height: 250px;
+            overflow-y: auto;
+            z-index: 1000;
+            display: none;
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.6);
+        }
+
+        .autocomplete-dropdown.open {
+            display: block;
+        }
+
+        .autocomplete-item {
+            padding: 0.75rem 1rem;
+            cursor: pointer;
+            font-size: 0.9rem;
+            color: var(--text-main);
+            transition: all 0.15s ease;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+            text-align: left;
+        }
+
+        .autocomplete-item:last-child {
+            border-bottom: none;
+        }
+
+        .autocomplete-item:hover,
+        .autocomplete-item.active {
+            background: rgba(99, 102, 241, 0.35);
+            color: white;
+            padding-left: 1.25rem;
+        }
+
+        /* Customize Scrollbar for Dropdown */
+        .autocomplete-dropdown::-webkit-scrollbar {
+            width: 6px;
+        }
+        .autocomplete-dropdown::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.1);
+        }
+        .autocomplete-dropdown::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 3px;
+        }
+        .autocomplete-dropdown::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.4);
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="logo">
+            Optimal Fuel Route <span>PRO</span>
+        </div>
+        <div>
+            <span style="font-size: 0.85rem; color: var(--text-muted);">OSRM & LP-Greedy Core</span>
+        </div>
+    </header>
+
+    <div class="main-container">
+        <div class="sidebar">
+            <div class="search-card">
+                <form id="route-form">
+                    <div class="form-group">
+                        <label for="start-input">START LOCATION</label>
+                        <div class="autocomplete-container">
+                            <input type="text" id="start-input" class="form-control" placeholder="City, State (e.g. Houston, TX)" value="{{ start }}" autocomplete="off" required>
+                            <div id="start-dropdown" class="autocomplete-dropdown"></div>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="end-input">FINISH LOCATION</label>
+                        <div class="autocomplete-container">
+                            <input type="text" id="end-input" class="form-control" placeholder="City, State (e.g. Atlanta, GA)" value="{{ end }}" autocomplete="off" required>
+                            <div id="end-dropdown" class="autocomplete-dropdown"></div>
+                        </div>
+                    </div>
+                    <button type="submit" class="btn-submit">
+                        <div class="spinner" id="form-spinner"></div>
+                        <span id="btn-text">Optimize Route</span>
+                    </button>
+                </form>
+            </div>
+
+            <div id="results-section" style="display: none;">
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-label">Total Cost</div>
+                        <div class="stat-val highlight" id="stat-cost">$0.00</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Total Distance</div>
+                        <div class="stat-val" id="stat-distance">0.0 mi</div>
+                    </div>
+                </div>
+
+                <div class="stops-container">
+                    <div class="section-title">
+                        Itinerary Summary
+                    </div>
+                    <div class="timeline" id="stops-timeline">
+                        <!-- timeline items dynamically added here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="map-container">
+            <div id="map"></div>
+            <div class="toast" id="toast-error">
+                <span style="font-weight: 600;">Error:</span>
+                <span id="error-message">Failed to fetch route.</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    
+    <script>
+        // Initialize Map
+        const map = L.map('map').setView([39.8283, -98.5795], 4);
+        
+        // Curated Dark Mode Tiles
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+            subdomains: 'abcd',
+            maxZoom: 20
+        }).addTo(map);
+
+        let routeLayer = null;
+        let markers = [];
+
+        function showToast(message) {
+            const toast = document.getElementById('toast-error');
+            document.getElementById('error-message').textContent = message;
+            toast.style.display = 'flex';
+            setTimeout(() => {
+                toast.style.display = 'none';
+            }, 6000);
+        }
+
+        async function fetchRoute(start, end) {
+            // Show loading indicators
+            document.getElementById('form-spinner').style.display = 'block';
+            document.getElementById('btn-text').textContent = 'Optimizing...';
+            
+            try {
+                const response = await fetch(`/api/route/?start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}`);
+                const data = await response.json();
+                
+                if (!response.ok) {
+                    throw new Error(data.error || 'Failed to calculate route.');
+                }
+                
+                renderRoute(data);
+            } catch (err) {
+                console.error(err);
+                showToast(err.message);
+            } finally {
+                document.getElementById('form-spinner').style.display = 'none';
+                document.getElementById('btn-text').textContent = 'Optimize Route';
+            }
+        }
+
+        function renderRoute(data) {
+            // 1. Clean previous layers and markers
+            if (routeLayer) {
+                map.removeLayer(routeLayer);
+            }
+            markers.forEach(m => map.removeLayer(m));
+            markers = [];
+
+            // 2. Render polyline
+            if (data.route_geometry && data.route_geometry.length > 0) {
+                routeLayer = L.polyline(data.route_geometry, {
+                    color: '#6366f1',
+                    weight: 5,
+                    opacity: 0.8,
+                    lineJoin: 'round'
+                }).addTo(map);
+                
+                map.fitBounds(routeLayer.getBounds(), { padding: [50, 50] });
+            }
+
+            // 3. Render markers
+            // Start node
+            const startMarker = L.circleMarker(data.start_coordinates, {
+                radius: 8,
+                color: '#4f46e5',
+                fillColor: '#818cf8',
+                fillOpacity: 1,
+                weight: 3
+            }).addTo(map).bindPopup('<div class="popup-title">Start Location</div><div class="popup-details">' + data.start_name + '</div>');
+            markers.push(startMarker);
+
+            // End node
+            const endMarker = L.circleMarker(data.end_coordinates, {
+                radius: 8,
+                color: '#059669',
+                fillColor: '#34d399',
+                fillOpacity: 1,
+                weight: 3
+            }).addTo(map).bindPopup('<div class="popup-title">Finish Location</div><div class="popup-details">' + data.end_name + '</div>');
+            markers.push(endMarker);
+
+            // Refuel stops
+            data.refuel_stops.forEach(stop => {
+                const marker = L.circleMarker([stop.lat, stop.lng], {
+                    radius: 7,
+                    color: '#b45309',
+                    fillColor: '#fbbf24',
+                    fillOpacity: 1,
+                    weight: 2
+                }).addTo(map).bindPopup(
+                    `<div class="popup-title">${stop.name}</div>` +
+                    `<div class="popup-details">${stop.address}, ${stop.city}, ${stop.state}</div>` +
+                    `<div class="popup-refuel">Refuel: ${stop.fuel_to_buy_gallons.toFixed(2)} gal @ $${stop.price.toFixed(3)}/gal</div>` +
+                    `<div class="popup-details">Cost: $${stop.cost.toFixed(2)}</div>`
+                );
+                markers.push(marker);
+            });
+
+            // 4. Render Sidebar Stats
+            document.getElementById('stat-cost').textContent = '$' + data.total_fuel_cost.toFixed(2);
+            document.getElementById('stat-distance').textContent = data.total_distance_miles.toFixed(1) + ' mi';
+            document.getElementById('results-section').style.display = 'block';
+
+            // 5. Render Sidebar Timeline
+            const timeline = document.getElementById('stops-timeline');
+            timeline.innerHTML = '';
+
+            // Add Start
+            timeline.appendChild(createTimelineItem('Start', data.start_name, '0.0 mi (Tank Full)', 'start'));
+
+            // Add Refuel Stops
+            data.refuel_stops.forEach(stop => {
+                const stopDesc = `${stop.address}, ${stop.city}, ${stop.state}`;
+                const extra = `<div class="timeline-price">` +
+                              `<span>Price: $${stop.price.toFixed(3)}/gal</span>` +
+                              `<span class="badge">Buy ${stop.fuel_to_buy_gallons.toFixed(2)} gal ($${stop.cost.toFixed(2)})</span>` +
+                              `</div>`;
+                timeline.appendChild(createTimelineItem(stop.name, stopDesc, `${stop.distance_along_route.toFixed(1)} mi along route`, 'refuel', extra));
+            });
+
+            // Add End
+            timeline.appendChild(createTimelineItem('Destination', data.end_name, `${data.total_distance_miles.toFixed(1)} mi reached`, 'end'));
+        }
+
+        function createTimelineItem(title, desc, meta, type, extraHtml = '') {
+            const item = document.createElement('div');
+            item.className = `timeline-item ${type}`;
+            item.innerHTML = `
+                <div class="timeline-content">
+                    <div class="timeline-title">${title}</div>
+                    <div class="timeline-desc">${desc}</div>
+                    <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem;">${meta}</div>
+                    ${extraHtml}
+                </div>
+            `;
+            return item;
+        }
+
+        // Handle Form Submission
+        document.getElementById('route-form').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const start = document.getElementById('start-input').value;
+            const end = document.getElementById('end-input').value;
+            
+            // Update URL query params without reloading
+            const url = new URL(window.location);
+            url.searchParams.set('start', start);
+            url.searchParams.set('end', end);
+            window.history.pushState({}, '', url);
+
+            fetchRoute(start, end);
+        });
+
+        // Searchable dropdown / autocomplete logic
+        let allCities = [];
+
+        async function loadCities() {
+            try {
+                const response = await fetch('/api/cities/');
+                if (response.ok) {
+                    allCities = await response.json();
+                }
+            } catch (err) {
+                console.error("Failed to load cities list:", err);
+            }
+        }
+
+        function setupAutocomplete(input, dropdown) {
+            let currentFocus = -1;
+
+            input.addEventListener('input', function() {
+                const val = this.value.trim().toLowerCase();
+                dropdown.innerHTML = '';
+                currentFocus = -1;
+
+                if (!val || val.length < 2) {
+                    dropdown.classList.remove('open');
+                    return;
+                }
+
+                // Filter matches (case-insensitive substring)
+                const matches = [];
+                for (let i = 0; i < allCities.length; i++) {
+                    const city = allCities[i];
+                    if (city.toLowerCase().includes(val)) {
+                        matches.push(city);
+                        if (matches.length >= 10) break; // Display top 10 matches
+                    }
+                }
+
+                if (matches.length === 0) {
+                    dropdown.classList.remove('open');
+                    return;
+                }
+
+                matches.forEach((match, idx) => {
+                    const item = document.createElement('div');
+                    item.className = 'autocomplete-item';
+                    item.textContent = match;
+                    item.dataset.index = idx;
+                    
+                    item.addEventListener('click', function() {
+                        input.value = match;
+                        dropdown.classList.remove('open');
+                        
+                        // Trigger input events if any other parts depend on it
+                        const event = new Event('change');
+                        input.dispatchEvent(event);
+                    });
+
+                    dropdown.appendChild(item);
+                });
+
+                dropdown.classList.add('open');
+            });
+
+            input.addEventListener('keydown', function(e) {
+                const items = dropdown.getElementsByClassName('autocomplete-item');
+                if (items.length === 0) return;
+
+                if (e.key === 'ArrowDown') {
+                    e.preventDefault();
+                    currentFocus++;
+                    setActive(items);
+                } else if (e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    currentFocus--;
+                    setActive(items);
+                } else if (e.key === 'Enter') {
+                    if (currentFocus > -1 && items[currentFocus]) {
+                        e.preventDefault();
+                        items[currentFocus].click();
+                    }
+                } else if (e.key === 'Escape') {
+                    dropdown.classList.remove('open');
+                    currentFocus = -1;
+                }
+            });
+
+            function setActive(items) {
+                for (let i = 0; i < items.length; i++) {
+                    items[i].classList.remove('active');
+                }
+                if (currentFocus >= items.length) currentFocus = 0;
+                if (currentFocus < 0) currentFocus = items.length - 1;
+                
+                items[currentFocus].classList.add('active');
+                items[currentFocus].scrollIntoView({ block: 'nearest' });
+            }
+
+            input.addEventListener('focus', function() {
+                if (this.value.trim().length >= 2) {
+                    const event = new Event('input');
+                    input.dispatchEvent(event);
+                }
+            });
+
+            document.addEventListener('click', function(e) {
+                if (e.target !== input && e.target !== dropdown && !dropdown.contains(e.target)) {
+                    dropdown.classList.remove('open');
+                    currentFocus = -1;
+                }
+            });
+        }
+
+        // Proactive initialization from query params and cities loading
+        window.addEventListener('DOMContentLoaded', async () => {
+            await loadCities();
+            setupAutocomplete(document.getElementById('start-input'), document.getElementById('start-dropdown'));
+            setupAutocomplete(document.getElementById('end-input'), document.getElementById('end-dropdown'));
+
+            const urlParams = new URLSearchParams(window.location.search);
+            const start = urlParams.get('start') || "{{ start }}";
+            const end = urlParams.get('end') || "{{ end }}";
+            
+            if (start && end) {
+                document.getElementById('start-input').value = start;
+                document.getElementById('end-input').value = end;
+                fetchRoute(start, end);
+            }
+        });
+    </script>
+</body>
+</html>
